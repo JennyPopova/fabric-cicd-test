@@ -1,0 +1,39 @@
+table Product
+	lineageTag: 8fa277ad-a80c-492a-b718-d23e75db1c4c
+
+	column ProductKey
+		dataType: int64
+		isHidden
+		isKey
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: ProductKey
+
+	column ProductName
+		dataType: string
+		lineageTag: d597924f-d85a-4424-873d-7f6d7661cc13
+		summarizeBy: none
+		sourceColumn: ProductName
+
+	column Category
+		dataType: string
+		lineageTag: 63ff767f-bfe5-4648-964e-284df9d03404
+		summarizeBy: none
+		sourceColumn: Category
+
+	partition Product = m
+		mode: import
+		source =
+				#table(
+				    type table [ProductKey = Int64.Type, ProductName = text, Category = text],
+				    {
+				        {1, "Notebook", "Office"},
+				        {2, "Planner", "Office"},
+				        {3, "Keyboard", "Electronics"},
+				        {4, "Headset", "Electronics"},
+				        {5, "Bottle", "Lifestyle"},
+				        {6, "Tote", "Lifestyle"}
+				    }
+				)
+
+	annotation PBI_ResultType = Table

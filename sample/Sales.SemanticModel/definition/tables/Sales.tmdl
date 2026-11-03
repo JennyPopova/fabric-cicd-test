@@ -1,0 +1,123 @@
+table Sales
+	lineageTag: ec2c13c8-4430-47b6-a83a-770c4cad844f
+
+	measure 'Total Sales' = SUM(Sales[Revenue])
+		formatString: "$"#,0.00;("$"#,0.00);"$"0.00
+		displayFolder: Sales Performance
+		lineageTag: f16942a0-e0d8-4276-9e90-d671ed1683c6
+
+	measure 'Total Cost' = SUM(Sales[Cost])
+		formatString: "$"#,0.00;("$"#,0.00);"$"0.00
+		displayFolder: Sales Performance
+		lineageTag: f64f7d8e-8411-41c5-815d-a6632ce6bbce
+
+	measure 'Gross Profit' = [Total Sales] - [Total Cost]
+		formatString: "$"#,0.00;("$"#,0.00);"$"0.00
+		displayFolder: Sales Performance
+		lineageTag: 2fbd8155-48a5-4db4-b0e6-40cf09448609
+
+	measure 'Gross Margin %' = DIVIDE([Gross Profit], [Total Sales], 0)
+		formatString: 0.0%
+		displayFolder: Sales Performance
+		lineageTag: 61aec070-69f8-41dd-b69c-68db81dc02cb
+
+	measure 'Units Sold' = SUM(Sales[Quantity])
+		formatString: #,0
+		displayFolder: Sales Performance
+		lineageTag: c0fb1695-de44-4c12-8211-c1b32406c550
+
+	measure 'Order Count' = DISTINCTCOUNT(Sales[SaleID])
+		formatString: #,0
+		displayFolder: Sales Performance
+		lineageTag: ce2c8327-55b4-4c58-bf22-b84b9b31278a
+
+	column SaleID
+		dataType: int64
+		isHidden
+		isKey
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: SaleID
+
+	column Date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-MM-dd
+		summarizeBy: none
+		sourceColumn: Date
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column ProductKey
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: ProductKey
+
+	column Quantity
+		dataType: int64
+		isHidden
+		formatString: #,0
+		summarizeBy: sum
+		sourceColumn: Quantity
+
+	column UnitPrice
+		dataType: decimal
+		isHidden
+		formatString: "$"#,0.00
+		summarizeBy: none
+		sourceColumn: UnitPrice
+
+	column UnitCost
+		dataType: decimal
+		isHidden
+		formatString: "$"#,0.00
+		summarizeBy: none
+		sourceColumn: UnitCost
+
+	column Revenue
+		dataType: decimal
+		isHidden
+		formatString: "$"#,0.00
+		summarizeBy: sum
+		sourceColumn: Revenue
+
+	column Cost
+		dataType: decimal
+		isHidden
+		formatString: "$"#,0.00
+		summarizeBy: sum
+		sourceColumn: Cost
+
+	partition Sales = m
+		mode: import
+		source =
+				let
+				    Prices = {25, 40, 75, 120, 15, 30},
+				    Costs = {10, 18, 35, 60, 6, 12},
+				    Rows = List.Transform({0..215}, (Index) =>
+				        let
+				            ProductIndex = Number.Mod(Index, 6),
+				            MonthIndex = Number.IntegerDivide(Index, 9),
+				            Quantity = Number.Mod(Index, 5) + 1
+				        in
+				            {
+				                Index + 1,
+				                #date(2024 + Number.IntegerDivide(MonthIndex, 12), Number.Mod(MonthIndex, 12) + 1, 1 + Number.Mod(Index, 9) * 3),
+				                ProductIndex + 1,
+				                Quantity,
+				                Prices{ProductIndex},
+				                Costs{ProductIndex},
+				                Quantity * Prices{ProductIndex},
+				                Quantity * Costs{ProductIndex}
+				            }
+				    ),
+				    Result = #table(
+				        type table [SaleID = Int64.Type, Date = date, ProductKey = Int64.Type, Quantity = Int64.Type, UnitPrice = Currency.Type, UnitCost = Currency.Type, Revenue = Currency.Type, Cost = Currency.Type],
+				        Rows
+				    )
+				in
+				    Result
+
+	annotation PBI_ResultType = Table

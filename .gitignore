@@ -1,0 +1,7 @@
+**/.pbi/
+**/localSettings.json
+**/*.lock
+**/*.tmp
+**/__pycache__/
+*.pyc
+.venv/

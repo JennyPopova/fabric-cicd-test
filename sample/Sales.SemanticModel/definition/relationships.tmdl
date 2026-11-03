@@ -1,0 +1,9 @@
+relationship 3a9e3ed7-3fa0-42ba-9ddd-c9fc35d51954
+	fromColumn: Sales.Date
+	toColumn: Date.Date
+	crossFilteringBehavior: oneDirection
+
+relationship 0389c69c-c047-43a8-977a-a638bb94631a
+	fromColumn: Sales.ProductKey
+	toColumn: Product.ProductKey
+	crossFilteringBehavior: oneDirection

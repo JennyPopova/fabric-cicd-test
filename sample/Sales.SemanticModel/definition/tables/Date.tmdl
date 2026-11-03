@@ -1,0 +1,65 @@
+table Date
+	dataCategory: Time
+	lineageTag: 394a7506-0d07-469b-9903-8ef14414ccab
+
+	column Date
+		dataType: dateTime
+		isKey
+		formatString: yyyy-MM-dd
+		lineageTag: 7ce46a64-e177-4aca-b854-0612c0632dc9
+		summarizeBy: none
+		sourceColumn: Date
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: c713b727-de02-4240-8d46-140635be3725
+		summarizeBy: none
+		sourceColumn: Year
+
+	column MonthNumber
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: MonthNumber
+
+	column MonthName
+		dataType: string
+		summarizeBy: none
+		sourceColumn: MonthName
+		sortByColumn: MonthNumber
+
+	column YearMonth
+		dataType: string
+		lineageTag: a15b5238-5104-488a-ae5a-8fb2d4d8adeb
+		summarizeBy: none
+		sourceColumn: YearMonth
+		sortByColumn: YearMonthSort
+
+	column YearMonthSort
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: YearMonthSort
+
+	partition Date = m
+		mode: import
+		source =
+				let
+				    Start = #date(2024, 1, 1),
+				    End = #date(2025, 12, 31),
+				    Days = List.Dates(Start, Duration.Days(End - Start) + 1, #duration(1, 0, 0, 0)),
+				    Dates = Table.FromColumns({Days}, type table [Date = date]),
+				    WithYear = Table.AddColumn(Dates, "Year", each Date.Year([Date]), Int64.Type),
+				    WithMonth = Table.AddColumn(WithYear, "MonthNumber", each Date.Month([Date]), Int64.Type),
+				    WithName = Table.AddColumn(WithMonth, "MonthName", each Date.MonthName([Date], "en-US"), type text),
+				    WithLabel = Table.AddColumn(WithName, "YearMonth", each Date.ToText([Date], "yyyy-MM", "en-US"), type text),
+				    Result = Table.AddColumn(WithLabel, "YearMonthSort", each [Year] * 100 + [MonthNumber], Int64.Type)
+				in
+				    Result
+
+	annotation PBI_ResultType = Table
