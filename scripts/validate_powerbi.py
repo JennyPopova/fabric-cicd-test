@@ -10,10 +10,12 @@ from urllib.request import urlopen
 
 
 EXPECTED_VISUALS = {
-    "yearSlicer", "categorySlicer", "totalSalesCard", "grossProfitCard",
-    "grossMarginCard", "unitsSoldCard", "monthlySales", "categorySales",
-    "productPerformance",
+    "183fee7813e8268d8e94", "1acbb2cc01e237ac0802", "2777c7b959007050e623",
+    "365aca82563077dcde61", "443e1593903561d0024b", "64ceae52e70a9d8e4909",
+    "98673ee350be45840d89", "cecf53bee0230b829629", "d25059969909db20c304",
+    "d42cec744e05ae159713",
 }
+EXPECTED_PAGE = "5fbe7a4cdeb5ad8c41a7"
 EXPECTED_MEASURES = {
     "Total Sales", "Total Cost", "Gross Profit", "Gross Margin %",
     "Units Sold", "Order Count",
@@ -99,7 +101,7 @@ def validate(project_path, schemas=False):
     require(project["version"] == "1.0", "Unexpected PBIP version")
     require(len(project["artifacts"]) == 1, "Expected one connected report")
     report = resolve_relative(project_path.parent, project["artifacts"][0]["report"]["path"])
-    require(report.name == "Sales.Report", "Unexpected report folder")
+    require(report.name == "Sales-report.Report", "Unexpected report folder")
     report_manifest = report / "definition.pbir"
     connection = read_json(report_manifest)
     model = resolve_relative(report, connection["datasetReference"]["byPath"]["path"])
@@ -123,7 +125,7 @@ def validate(project_path, schemas=False):
         require(definition / name in documents, f"Missing report definition: {name}")
     pages_path = definition / "pages"
     pages = documents[pages_path / "pages.json"]
-    require(pages["pageOrder"] == ["salesOverview"], "Unexpected sample page order")
+    require(pages["pageOrder"] == [EXPECTED_PAGE], "Unexpected sample page order")
     require(pages["activePageName"] in pages["pageOrder"], "Active page is missing")
     require({path.name for path in pages_path.iterdir() if path.is_dir()} == set(pages["pageOrder"]),
             "Page directories do not match pageOrder")
@@ -139,17 +141,21 @@ def validate(project_path, schemas=False):
         for visual_name, visual_dir in visual_dirs.items():
             visual = read_json(visual_dir / "visual.json")
             require(visual["name"] == visual_name, f"Visual name mismatch: {visual_name}")
-            require(bool(visual["visual"]["query"]["queryState"]), f"Missing query: {visual_name}")
+            decorative = visual["visual"]["visualType"] in {"shape", "textbox"}
+            if not decorative:
+                require(bool(visual["visual"]["query"]["queryState"]), f"Missing query: {visual_name}")
             check_fields(visual, tables)
             position = visual["position"]
             left, top = position["x"], position["y"]
             right, bottom = left + position["width"], top + position["height"]
             require(0 <= left < right <= page["width"] and 0 <= top < bottom <= page["height"],
                     f"Visual outside page bounds: {visual_name}")
-            for other_name, other_left, other_top, other_right, other_bottom in positions:
-                require(not (left < other_right and right > other_left and top < other_bottom and bottom > other_top),
-                        f"Overlapping visuals: {visual_name}, {other_name}")
-            positions.append((visual_name, left, top, right, bottom))
+            # Exported header shapes and text intentionally overlay one another and slicers.
+            if not decorative:
+                for other_name, other_left, other_top, other_right, other_bottom in positions:
+                    require(not (left < other_right and right > other_left and top < other_bottom and bottom > other_top),
+                            f"Overlapping visuals: {visual_name}, {other_name}")
+                positions.append((visual_name, left, top, right, bottom))
             visual_count += 1
     print(f"PASS: connected PBIP, 3 table declarations, 6 measures, 1 page, {visual_count} visual bindings and bounds")
     if schemas:

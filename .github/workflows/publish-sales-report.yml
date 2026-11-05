@@ -18,11 +18,11 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      id-token: write
     env:
-      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       PBI_WORKSPACE_ID: ${{ vars.PBI_WORKSPACE_ID }}
+      AZURE_CONFIG_DIR: ${{ runner.temp }}/powerbi-azure-cli
+      AZURE_CORE_LOGIN_EXPERIENCE_V2: "off"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,7 +34,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          : "${AZURE_CLIENT_ID:?Set the AZURE_CLIENT_ID repository variable}"
           : "${AZURE_TENANT_ID:?Set the AZURE_TENANT_ID repository variable}"
           : "${PBI_WORKSPACE_ID:?Set the PBI_WORKSPACE_ID repository variable}"
       - name: Install deployment dependencies
@@ -43,11 +42,16 @@ jobs:
         run: |
           python -m unittest discover -s scripts -p 'test_*.py' -v
           python scripts/deploy_powerbi.py sales-report --validate-only
-      - name: Sign in with Microsoft Entra OIDC
-        uses: azure/login@v2
-        with:
-          client-id: ${{ env.AZURE_CLIENT_ID }}
-          tenant-id: ${{ env.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
+      - name: Sign in as a Power BI user (open logs for device code)
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Open the Microsoft URL printed below and enter the device code."
+          echo "Sign in with the Power BI account that has access to the target workspace."
+          az login --tenant "$AZURE_TENANT_ID" --use-device-code --allow-no-subscriptions --output none
       - name: Publish Sales-report only
         run: python scripts/deploy_powerbi.py sales-report
+      - name: Clear Azure CLI credentials
+        if: always()
+        run: az account clear

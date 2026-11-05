@@ -17,8 +17,10 @@ class PowerBIValidationTests(unittest.TestCase):
         self.sample = Path(self.temporary.name) / "sample"
         shutil.copytree(source, self.sample, ignore=shutil.ignore_patterns(".pbi"))
         self.project = self.sample / "Sales.pbip"
-        self.report = self.sample / "Sales.Report"
-        self.page = self.report / "definition/pages/salesOverview"
+        self.report = self.sample / "Sales-report.Report"
+        self.page = self.report / "definition/pages/5fbe7a4cdeb5ad8c41a7"
+        self.sales_card = self.page / "visuals/2777c7b959007050e623"
+        self.profit_card = self.page / "visuals/365aca82563077dcde61"
 
     def run_validation(self):
         with contextlib.redirect_stdout(io.StringIO()):
@@ -51,30 +53,46 @@ class PowerBIValidationTests(unittest.TestCase):
             self.run_validation()
 
     def test_missing_visual_metadata(self):
-        (self.page / "visuals/totalSalesCard/visual.json").unlink()
+        (self.sales_card / "visual.json").unlink()
         with self.assertRaisesRegex(ValueError, "Missing file"):
             self.run_validation()
 
     def test_missing_visual_folder(self):
-        shutil.rmtree(self.page / "visuals/totalSalesCard")
+        shutil.rmtree(self.sales_card)
         with self.assertRaisesRegex(ValueError, "missing sample visual folders"):
             self.run_validation()
 
     def test_unknown_measure(self):
         def change(document):
-            projection = document["visual"]["query"]["queryState"]["Values"]["projections"][0]
+            projection = document["visual"]["query"]["queryState"]["Data"]["projections"][0]
             projection["field"]["Measure"]["Property"] = "Missing Measure"
 
-        self.update_json(self.page / "visuals/totalSalesCard/visual.json", change)
+        self.update_json(self.sales_card / "visual.json", change)
         with self.assertRaisesRegex(ValueError, "Unknown Measure"):
             self.run_validation()
 
     def test_overlapping_visuals(self):
         self.update_json(
-            self.page / "visuals/grossProfitCard/visual.json",
-            lambda document: document["position"].update(x=24),
+            self.profit_card / "visual.json",
+            lambda document: document["position"].update(x=40),
         )
         with self.assertRaisesRegex(ValueError, "Overlapping visuals"):
+            self.run_validation()
+
+    def test_missing_data_visual_query_is_rejected(self):
+        self.update_json(
+            self.sales_card / "visual.json",
+            lambda document: document["visual"]["query"].update(queryState={}),
+        )
+        with self.assertRaisesRegex(ValueError, "Missing query"):
+            self.run_validation()
+
+    def test_decorative_visual_outside_canvas_is_rejected(self):
+        self.update_json(
+            self.page / "visuals/98673ee350be45840d89/visual.json",
+            lambda document: document["position"].update(x=-1),
+        )
+        with self.assertRaisesRegex(ValueError, "Visual outside page bounds"):
             self.run_validation()
 
 
