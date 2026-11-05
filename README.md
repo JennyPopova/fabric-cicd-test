@@ -7,7 +7,7 @@ A text-based Power BI project for testing model and report changes in source con
 1. Clone the repository onto Windows with a current Power BI Desktop release. Use the regular Desktop application, not Desktop for Report Server. Keep both artifact folders together.
 2. If your release requires them, enable **Power BI Project (.pbip) save option**, **Store semantic model using TMDL format**, and **Store reports using enhanced metadata format (PBIR)** under File > Options and settings > Options > Preview features. Restart Desktop after changing preview options. Feature names and availability vary by release.
 3. Open [sample/Sales.pbip](sample/Sales.pbip). The model is import mode; no cached data is committed. Select **Home > Refresh** to materialize the embedded data before checking report results.
-4. Open **Sales Overview** and compare the cards and table totals with the acceptance values below. The Year and Category slicers start unfiltered. Charts and the product table use explicit model measures.
+4. Open **Sales Performance Overview** and compare the Total Sales and Gross Profit cards with the acceptance values below. Clear the Year and Category slicers before checking unfiltered totals. Charts use explicit model measures.
 5. In Model view, confirm that Date and Product each filter Sales through an active, single-direction, one-to-many relationship. Date is marked as a date table using its unique Date column. MonthName sorts by MonthNumber; YearMonth sorts by YearMonthSort.
 6. Save, close, and reopen the project. Verify that the report remains connected and its visuals still work. Generated `.pbi` caches and local settings are intentionally ignored by Git.
 
@@ -28,14 +28,14 @@ sample/
 				Date.tmdl
 				Product.tmdl
 				Sales.tmdl
-	Sales.Report/
+	Sales-report.Report/
 		definition.pbir
 		definition/
 			version.json
 			report.json
 			pages/
 				pages.json
-				salesOverview/
+				5fbe7a4cdeb5ad8c41a7/
 					page.json
 					visuals/<visual-name>/visual.json
 scripts/
@@ -44,7 +44,7 @@ scripts/
 	requirements-validation.txt
 ```
 
-The PBIP entry point references `Sales.Report`; its `definition.pbir` references `../Sales.SemanticModel`. All report visuals bind to the model's Date, Product, or Sales fields. The page contains four KPI cards, a monthly line chart, category bar chart, product table, and two dropdown slicers.
+The PBIP entry point references `Sales-report.Report`; its `definition.pbir` references `../Sales.SemanticModel`. Data visuals bind to the model's Date, Product, or Sales fields. The exported page contains two KPI cards, a monthly line chart, three column charts, two dropdown slicers, and a decorative header shape and text box.
 
 ## Sample Model
 
@@ -71,7 +71,7 @@ Measures: **Total Sales**, **Total Cost**, **Gross Profit**, **Gross Margin %**,
 
 ## Desktop Acceptance Values
 
-These values were calculated independently from the generation rules, not by executing the model. Compare them with Desktop after refresh. Currency is USD; margins are displayed to one decimal place.
+These values were calculated independently from the generation rules, not by executing the model. Compare the displayed measures with Desktop after refresh; measures not shown in this report can be checked in a temporary table visual. Currency is USD.
 
 | Year Slicer | Category Slicer | Total Sales | Total Cost | Gross Profit | Gross Margin | Units Sold | Order Count |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -81,7 +81,7 @@ These values were calculated independently from the generation rules, not by exe
 | All | Electronics | $21,180.00 | $10,320.00 | $10,860.00 | 51.3% | 217 | 72 |
 | 2025 | Electronics | $10,305.00 | $5,025.00 | $5,280.00 | 51.2% | 105 | 36 |
 
-Selecting a year should reduce the monthly chart to 12 months. Selecting Electronics should leave Keyboard and Headset in the product table. Applying both slicers should give the last row above across cards, charts, and table totals. Clear both slicers and verify the unfiltered values return. Chart selections may cross-highlight other visuals according to Power BI's built-in defaults.
+Selecting a year should reduce the monthly chart to 12 months. Selecting Electronics should leave Keyboard and Headset in the product units chart. Applying both slicers should give the last row above for the displayed measures. Clear both slicers and verify the unfiltered values return. Chart selections may cross-highlight other visuals according to Power BI's built-in defaults.
 
 ## Repository Validation
 
@@ -100,7 +100,7 @@ python3 scripts/validate_powerbi.py --schemas
 
 On Windows, use `py` in place of `python3` if needed. No Python packages are needed to open or refresh the Power BI project itself.
 
-The validator checks project/model paths, required TMDL files, a narrow inventory of column/measure declarations, page/visual metadata, report field references, and non-overlapping canvas bounds. `--schemas` additionally validates all schema-bearing JSON files, including referenced schemas. Missing files, invalid references, schema failures, and unreachable schemas fail with a nonzero exit code. The PBIP entry point has structural checks only; it has no declared JSON schema.
+The validator checks project/model paths, required TMDL files, a narrow inventory of column/measure declarations, page/visual metadata, report field references, and canvas bounds. Data visuals must not overlap; decorative header shapes and text may intentionally overlay other visuals. `--schemas` additionally validates all schema-bearing JSON files, including referenced schemas. Missing files, invalid references, schema failures, and unreachable schemas fail with a nonzero exit code. The PBIP entry point has structural checks only; it has no declared JSON schema.
 
 This script is deliberately specific to the sample, not a general TMDL parser or DAX/M engine. If you intentionally add pages, visuals, or measures, update its expected inventories. Runtime model correctness and report rendering require the Desktop acceptance checks.
 
@@ -124,28 +124,31 @@ Two independent **manual-only GitHub Actions workflows** publish to one Power BI
 | `publish-semantic-model.yml` / **Publish semantic model** | `sample/Sales.SemanticModel` | `Sales` semantic model only |
 | `publish-sales-report.yml` / **Publish Sales-report** | `sample/Sales-report.Report` | `Sales-report` report only |
 
-`Sales-report.Report` is the workspace-exported report, distinct from the original Desktop sample `Sales.Report` referenced by `Sales.pbip`. Neither pipeline publishes `Sales.Report`. Publishing creates or updates the selected item by its `.platform` display name and type; do not rename the workspace items independently. Other workspace items are not deleted, and workspace folders are not published.
+`Sales-report.Report` is the workspace-exported report used by both `Sales.pbip` and the report pipeline. Publishing creates or updates the selected item by its `.platform` display name and type; do not rename the workspace items independently. Other workspace items are not deleted, and workspace folders are not published.
 
 ### One-time configuration
 
-1. Create a Microsoft Entra app registration and service principal for deployment. No client secret or Azure subscription is required.
-2. Add a **federated credential** to that app for GitHub Actions with issuer `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`, and subject `repo:JennyPopova/fabric-cicd-test:environment:powerbi`.
+1. Choose the Microsoft Entra user account you use for Power BI. Add that user to the target workspace as **Contributor** or a higher role, with the appropriate Power BI licensing and semantic-model permissions. Use a regular workspace, not My workspace, with appropriate licensing/capacity and support for the Fabric item-definition APIs.
+2. Ensure your tenant permits Azure CLI user sign-in using the device-code flow and delegated access to the Fabric APIs. Sign-in must satisfy your organization's MFA and Conditional Access policies. If device-code sign-in is blocked, ask your administrator about an approved authentication method; do not bypass those policies.
 3. In repository **Settings > Environments**, create `powerbi`. Restrict deployment branches to `main`; optionally require a reviewer. Both workflows use this environment and also skip runs from other branches.
 4. In repository **Settings > Secrets and variables > Actions > Variables**, set the repository variables below. Keep `PBI_WORKSPACE_ID` at repository scope so both workflows share the same concurrency group.
 
 | Repository variable | Value |
 | --- | --- |
-| `AZURE_CLIENT_ID` | App registration application (client) GUID |
 | `AZURE_TENANT_ID` | Microsoft Entra directory (tenant) GUID |
 | `PBI_WORKSPACE_ID` | Target Power BI/Fabric workspace GUID from its URL |
 
-5. In the Fabric admin portal, enable **Service principals can use Fabric APIs** (and the applicable Power BI service-principal API tenant setting) for the deployment identity's security group. Add the service principal or that group to the target workspace as **Contributor** or a higher role. Use a regular workspace, not My workspace, with appropriate Power BI licensing/capacity and support for the Fabric item-definition APIs.
+No app registration, service principal, client secret, Azure subscription, or GitHub OIDC federation is required. If migrating from the previous service-principal setup, `AZURE_CLIENT_ID` and its federated credential are no longer used by these workflows.
 
-The workflows request only repository read access and OIDC token issuance. `azure/login` exchanges the GitHub OIDC token; `AzureCliCredential` supplies the resulting Entra identity to `fabric-cicd`. There are no passwords or workspace identifiers committed to source control. The pipelines do not provision workspaces or change tenant settings.
+The workflows request only repository read access. `az login --use-device-code` signs in interactively as your Microsoft Entra user; `AzureCliCredential` supplies that user's credentials to `fabric-cicd`. Starting or approving the GitHub workflow does not select the Microsoft identity: deployment uses whichever Power BI account completes the device-code sign-in. Credentials are kept in an isolated Azure CLI directory on the ephemeral runner, not cached or uploaded, and an always-run cleanup step clears the CLI account/token cache. There are no passwords or workspace identifiers committed to source control. The pipelines do not provision workspaces or change tenant settings.
 
 ### Publishing
 
-After merging these workflows into `main`, open **Actions**, select **Publish semantic model**, then **Run workflow** on `main`. For the first deployment, wait for that workflow to finish successfully before manually running **Publish Sales-report**.
+After merging these workflows into `main`, open **Actions**, select **Publish semantic model**, then **Run workflow** on `main`. Complete any environment approval, open the running job, and expand **Sign in as a Power BI user (open logs for device code)**. Open the Microsoft sign-in URL shown there, enter the device code, and sign in with your Power BI user. Complete sign-in within the step's 10-minute timeout (or the code's shorter expiry); the workflow then publishes automatically. If sign-in fails or expires, rerun the workflow to obtain a new code. Both workflows require a fresh sign-in for every run, so they are not unattended deployments.
+
+Only enter a device code from a workflow run you intentionally started and trust. Treat an unexpired code as sensitive and do not share it. Anyone who can read the job logs can see the code, especially in public repositories; never approve an unexpected sign-in or a request from an untrusted workflow.
+
+For the first deployment, wait for the semantic-model workflow to finish successfully before manually running **Publish Sales-report** and completing its own device-code sign-in.
 
 The report's relative `../Sales.SemanticModel` reference is resolved by `fabric-cicd` to the existing `Sales` model's ID in the target workspace. The report workflow does **not** deploy or refresh the model; it fails if the model has not been published there. Later report-only changes can be published independently. Publish compatible model changes first when changing fields used by the report.
 
