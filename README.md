@@ -104,9 +104,10 @@ The validator checks project/model paths, required TMDL files, a narrow inventor
 
 This script is deliberately specific to the sample, not a general TMDL parser or DAX/M engine. If you intentionally add pages, visuals, or measures, update its expected inventories. Runtime model correctness and report rendering require the Desktop acceptance checks.
 
-Run the validator regression tests without extra dependencies:
+Run the validator and deployment regression tests (deployment tests require the publishing library):
 
 ```sh
+python3 -m pip install -r scripts/requirements-deployment.txt
 python3 -m unittest discover -s scripts -p 'test_*.py' -v
 ```
 
@@ -116,8 +117,47 @@ During authoring, Microsoft Analysis Services `19.118.3` successfully deserializ
 
 ## CI/CD Scope
 
-This stage supplies development artifacts and local checks only. It does not configure GitHub Actions, create workspaces, publish to the service, or deploy between environments. No secrets or workspace identifiers are stored in the sample.
+Two independent **manual-only GitHub Actions workflows** publish to one Power BI workspace using Microsoft's `fabric-cicd` library:
 
-A later deployment stage will need a supported publishing method, development/test/production workspace IDs, appropriate licensing/capacity, deployment identity permissions and tenant settings, and environment-specific handling of report-to-model bindings. Keep the report and semantic model together when promoting them. Do not copy Desktop caches into deployment packages.
+| Workflow | Source | Published item |
+| --- | --- | --- |
+| `publish-semantic-model.yml` / **Publish semantic model** | `sample/Sales.SemanticModel` | `Sales` semantic model only |
+| `publish-sales-report.yml` / **Publish Sales-report** | `sample/Sales-report.Report` | `Sales-report` report only |
+
+`Sales-report.Report` is the workspace-exported report, distinct from the original Desktop sample `Sales.Report` referenced by `Sales.pbip`. Neither pipeline publishes `Sales.Report`. Publishing creates or updates the selected item by its `.platform` display name and type; do not rename the workspace items independently. Other workspace items are not deleted, and workspace folders are not published.
+
+### One-time configuration
+
+1. Create a Microsoft Entra app registration and service principal for deployment. No client secret or Azure subscription is required.
+2. Add a **federated credential** to that app for GitHub Actions with issuer `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`, and subject `repo:JennyPopova/fabric-cicd-test:environment:powerbi`.
+3. In repository **Settings > Environments**, create `powerbi`. Restrict deployment branches to `main`; optionally require a reviewer. Both workflows use this environment and also skip runs from other branches.
+4. In repository **Settings > Secrets and variables > Actions > Variables**, set the repository variables below. Keep `PBI_WORKSPACE_ID` at repository scope so both workflows share the same concurrency group.
+
+| Repository variable | Value |
+| --- | --- |
+| `AZURE_CLIENT_ID` | App registration application (client) GUID |
+| `AZURE_TENANT_ID` | Microsoft Entra directory (tenant) GUID |
+| `PBI_WORKSPACE_ID` | Target Power BI/Fabric workspace GUID from its URL |
+
+5. In the Fabric admin portal, enable **Service principals can use Fabric APIs** (and the applicable Power BI service-principal API tenant setting) for the deployment identity's security group. Add the service principal or that group to the target workspace as **Contributor** or a higher role. Use a regular workspace, not My workspace, with appropriate Power BI licensing/capacity and support for the Fabric item-definition APIs.
+
+The workflows request only repository read access and OIDC token issuance. `azure/login` exchanges the GitHub OIDC token; `AzureCliCredential` supplies the resulting Entra identity to `fabric-cicd`. There are no passwords or workspace identifiers committed to source control. The pipelines do not provision workspaces or change tenant settings.
+
+### Publishing
+
+After merging these workflows into `main`, open **Actions**, select **Publish semantic model**, then **Run workflow** on `main`. For the first deployment, wait for that workflow to finish successfully before manually running **Publish Sales-report**.
+
+The report's relative `../Sales.SemanticModel` reference is resolved by `fabric-cicd` to the existing `Sales` model's ID in the target workspace. The report workflow does **not** deploy or refresh the model; it fails if the model has not been published there. Later report-only changes can be published independently. Publish compatible model changes first when changing fields used by the report.
+
+Both workflows run regression tests and structural checks before signing in. The checks do not execute TMDL, M, DAX, or render reports; Desktop acceptance still applies. Schema validation remains available separately with `--schemas`. A shared concurrency group prevents simultaneous writes to the workspace and does not cancel an active deployment. GitHub may replace an older pending run when several runs are queued.
+
+Publishing definitions does not refresh imported data. After the initial model deployment, refresh `Sales` in the Power BI service before checking report values; configure any required refresh permissions or connections there. Desktop caches are excluded from publishing. Automated refresh and multi-environment promotion are outside these pipelines.
+
+To check either deployment source locally without Azure credentials or publishing dependencies:
+
+```sh
+python3 scripts/deploy_powerbi.py semantic-model --validate-only
+python3 scripts/deploy_powerbi.py sales-report --validate-only
+```
 
 For a first source-control exercise, change a measure or chart title in Desktop, save, and inspect the TMDL/PBIR diff. Run validation and the relevant acceptance checks before committing. A deliberate measure change may also require updating the expected totals.
