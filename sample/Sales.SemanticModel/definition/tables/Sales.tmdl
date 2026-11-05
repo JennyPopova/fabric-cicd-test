@@ -121,3 +121,4 @@ table Sales
 				    Result
 
 	annotation PBI_ResultType = Table
+

@@ -14,3 +14,4 @@ annotation PBI_QueryOrder = ["Date","Product","Sales"]
 ref table Date
 ref table Product
 ref table Sales
+

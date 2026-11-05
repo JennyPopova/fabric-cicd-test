@@ -1,6 +1,6 @@
 table Date
-	dataCategory: Time
 	lineageTag: 394a7506-0d07-469b-9903-8ef14414ccab
+	dataCategory: Time
 
 	column Date
 		dataType: dateTime
@@ -63,3 +63,4 @@ table Date
 				    Result
 
 	annotation PBI_ResultType = Table
+

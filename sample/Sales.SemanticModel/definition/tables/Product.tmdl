@@ -37,3 +37,4 @@ table Product
 				)
 
 	annotation PBI_ResultType = Table
+
