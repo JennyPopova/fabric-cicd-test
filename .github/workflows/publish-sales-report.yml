@@ -1,0 +1,53 @@
+name: Publish Sales-report
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: powerbi-publish-${{ vars.PBI_WORKSPACE_ID }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: powerbi
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      PBI_WORKSPACE_ID: ${{ vars.PBI_WORKSPACE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements-deployment.txt
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${AZURE_CLIENT_ID:?Set the AZURE_CLIENT_ID repository variable}"
+          : "${AZURE_TENANT_ID:?Set the AZURE_TENANT_ID repository variable}"
+          : "${PBI_WORKSPACE_ID:?Set the PBI_WORKSPACE_ID repository variable}"
+      - name: Install deployment dependencies
+        run: python -m pip install -r scripts/requirements-deployment.txt
+      - name: Validate and test
+        run: |
+          python -m unittest discover -s scripts -p 'test_*.py' -v
+          python scripts/deploy_powerbi.py sales-report --validate-only
+      - name: Sign in with Microsoft Entra OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - name: Publish Sales-report only
+        run: python scripts/deploy_powerbi.py sales-report
