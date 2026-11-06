@@ -40,6 +40,8 @@ class PowerBIDeploymentTests(unittest.TestCase):
         ))
         self.deployed = []
         self.writes = []
+        self.refresh = self.start_patch(patch.object(deploy_powerbi, "refresh_model"))
+        self.refresh.side_effect = lambda *args: self.assertEqual(len(self.writes), 1)
 
     def start_patch(self, patcher):
         result = patcher.start()
@@ -78,6 +80,8 @@ class PowerBIDeploymentTests(unittest.TestCase):
         parts = self.definition_parts()
         self.assertIn("definition.pbism", parts)
         self.assertNotIn("definition.pbir", parts)
+        self.refresh.assert_called_once()
+        self.assertEqual(self.refresh.call_args.args[:2], (WORKSPACE_ID, "Sales"))
 
     def test_update_model_only(self):
         self.deployed = [
@@ -87,6 +91,7 @@ class PowerBIDeploymentTests(unittest.TestCase):
         self.publish("semantic-model")
         self.definition_parts()
         self.assertIn(f"/{MODEL_ID}/updateDefinition?", self.writes[0][0])
+        self.refresh.assert_called_once()
 
     def test_refresh_runs_after_model_is_published(self):
         with patch.object(deploy_powerbi, "refresh_model") as refresh:
@@ -98,7 +103,8 @@ class PowerBIDeploymentTests(unittest.TestCase):
 
     def test_definition_only_publish_does_not_refresh(self):
         with patch.object(deploy_powerbi, "refresh_model") as refresh:
-            self.publish("semantic-model")
+            with contextlib.redirect_stdout(io.StringIO()):
+                deploy_powerbi.publish("semantic-model", WORKSPACE_ID, refresh=False)
         refresh.assert_not_called()
 
     def test_report_refresh_is_rejected_before_publishing(self):
@@ -110,8 +116,33 @@ class PowerBIDeploymentTests(unittest.TestCase):
         self.invoke.side_effect = RuntimeError("Publishing failed")
         with patch.object(deploy_powerbi, "refresh_model") as refresh:
             with self.assertRaises(RuntimeError), contextlib.redirect_stdout(io.StringIO()):
-                deploy_powerbi.publish("semantic-model", WORKSPACE_ID, refresh=True)
+                deploy_powerbi.publish("semantic-model", WORKSPACE_ID)
         refresh.assert_not_called()
+
+    def test_cli_model_publish_refreshes_without_flag(self):
+        with patch("sys.argv", ["deploy_powerbi.py", "semantic-model"]), \
+                patch.dict("os.environ", {"PBI_WORKSPACE_ID": WORKSPACE_ID}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(deploy_powerbi.main(), 0)
+        self.refresh.assert_called_once()
+
+    def test_cli_failed_refresh_fails_deployment(self):
+        self.refresh.side_effect = RuntimeError("Full refresh failed")
+        errors = io.StringIO()
+        with patch("sys.argv", ["deploy_powerbi.py", "semantic-model"]), \
+                patch.dict("os.environ", {"PBI_WORKSPACE_ID": WORKSPACE_ID}), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(errors):
+            self.assertEqual(deploy_powerbi.main(), 1)
+        self.assertEqual(len(self.writes), 1)
+        self.assertIn("Full refresh failed", errors.getvalue())
+
+    def test_cli_validate_only_does_not_publish_or_refresh(self):
+        with patch("sys.argv", ["deploy_powerbi.py", "semantic-model", "--validate-only"]), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(deploy_powerbi.main(), 0)
+        self.invoke.assert_not_called()
+        self.refresh.assert_not_called()
 
     def test_create_report_bound_to_existing_model_only(self):
         self.deployed = [self.workspace_item("SemanticModel", "Sales", MODEL_ID)]
@@ -125,6 +156,7 @@ class PowerBIDeploymentTests(unittest.TestCase):
         self.assertNotIn("byPath", connection)
         self.assertNotIn("definition.pbism", parts)
         self.assertEqual((self.sample / "Sales-report.Report/definition.pbir").read_bytes(), original)
+        self.refresh.assert_not_called()
 
     def test_update_report_only(self):
         self.deployed = [
@@ -134,6 +166,7 @@ class PowerBIDeploymentTests(unittest.TestCase):
         self.publish("sales-report")
         self.definition_parts()
         self.assertIn(f"/{REPORT_ID}/updateDefinition?", self.writes[0][0])
+        self.refresh.assert_not_called()
 
     def test_report_without_deployed_model_fails_before_writing(self):
         with self.assertRaises(PublishError):
@@ -219,7 +252,10 @@ class PowerBIRefreshTests(unittest.TestCase):
         self.assertEqual(self.request.call_args_list[0].args, (self.credential, "GET", self.base))
         self.assertEqual(
             self.request.call_args_list[1].args,
-            (self.credential, "POST", self.refresh_url, {"notifyOption": "NoNotification"}),
+            (
+                self.credential, "POST", self.refresh_url,
+                {"type": "Full", "commitMode": "Transactional", "applyRefreshPolicy": False},
+            ),
         )
         self.assertEqual(
             self.request.call_args_list[-1].args,
@@ -303,14 +339,18 @@ class PowerBIRefreshTests(unittest.TestCase):
         with patch.object(deploy_powerbi, "urlopen") as open_url:
             open_url.return_value.__enter__.return_value = response
             body, headers = self.real_request(
-                self.credential, "POST", self.refresh_url, {"notifyOption": "NoNotification"},
+                self.credential, "POST", self.refresh_url,
+                {"type": "Full", "commitMode": "Transactional", "applyRefreshPolicy": False},
             )
         self.credential.get_token.assert_called_once_with(deploy_powerbi.POWERBI_SCOPE)
         request = open_url.call_args.args[0]
         self.assertEqual(request.full_url, self.refresh_url)
         self.assertEqual(request.method, "POST")
         self.assertEqual(request.get_header("Authorization"), "Bearer offline-test-token")
-        self.assertEqual(json.loads(request.data), {"notifyOption": "NoNotification"})
+        self.assertEqual(
+            json.loads(request.data),
+            {"type": "Full", "commitMode": "Transactional", "applyRefreshPolicy": False},
+        )
         self.assertEqual(open_url.call_args.kwargs, {"timeout": 30})
         self.assertEqual(body, {"value": []})
         self.assertEqual(headers["x-ms-request-id"], self.request_id)

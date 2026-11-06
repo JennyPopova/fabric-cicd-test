@@ -131,9 +131,9 @@ Two independent **manual-only GitHub Actions workflows** publish to one Power BI
 1. Choose the Microsoft Entra user account you use for Power BI. Add that user to the target workspace as **Contributor** or a higher role, with the appropriate Power BI licensing and semantic-model permissions. Use a regular workspace, not My workspace, with appropriate licensing/capacity and support for the Fabric item-definition APIs.
 2. Ensure your tenant permits Azure CLI user sign-in using the device-code flow and delegated access to the Fabric APIs. Sign-in must satisfy your organization's MFA and Conditional Access policies. If device-code sign-in is blocked, ask your administrator about an approved authentication method; do not bypass those policies.
 3. In repository **Settings > Environments**, create `powerbi`. Restrict deployment branches to `main`; optionally require a reviewer. Both workflows use this environment and also skip runs from other branches.
-4. In repository **Settings > Secrets and variables > Actions > Variables**, set the repository variables below. Keep `PBI_WORKSPACE_ID` at repository scope so both workflows share the same concurrency group.
+4. In repository **Settings > Environments > powerbi > Environment secrets**, set the secrets below. Both deployment jobs select `environment: powerbi` and read the `secrets` context, not Actions variables. Environment secrets take precedence over repository or organization secrets with the same names; define both in `powerbi` to ensure the environment supplies the deployment configuration.
 
-| Repository variable | Value |
+| Environment secret | Value |
 | --- | --- |
 | `AZURE_TENANT_ID` | Microsoft Entra directory (tenant) GUID |
 | `PBI_WORKSPACE_ID` | Target Power BI/Fabric workspace GUID from its URL |
@@ -148,21 +148,21 @@ After merging these workflows into `main`, open **Actions**, select **Publish se
 
 Only enter a device code from a workflow run you intentionally started and trust. Treat an unexpired code as sensitive and do not share it. Anyone who can read the job logs can see the code, especially in public repositories; never approve an unexpected sign-in or a request from an untrusted workflow.
 
-For the first deployment, wait for the semantic-model workflow to finish successfully before manually running **Publish Sales-report** and completing its own device-code sign-in. The model workflow publishes the definition, requests a Power BI refresh using the same signed-in user, and waits for that specific refresh to complete so the import tables contain data.
+For the first deployment, wait for the semantic-model workflow to finish successfully before manually running **Publish Sales-report** and completing its own device-code sign-in. The model workflow publishes the definition, requests a full Power BI refresh using the same signed-in user, and waits for that specific refresh to complete so the import tables contain data.
 
 The report's relative `../Sales.SemanticModel` reference is resolved by `fabric-cicd` to the existing `Sales` model's ID in the target workspace. The report workflow does **not** deploy or refresh the model; it fails if the model has not been published there. Later report-only changes can be published independently. Publish compatible model changes first when changing fields used by the report.
 
-Both workflows run regression tests and structural checks before signing in. The checks do not execute TMDL, M, DAX, or render reports; Desktop acceptance still applies. Schema validation remains available separately with `--schemas`. A shared concurrency group prevents simultaneous writes to the workspace and does not cancel an active deployment. GitHub may replace an older pending run when several runs are queued.
+Both workflows run regression tests and structural checks before signing in. The checks do not execute TMDL, M, DAX, or render reports; Desktop acceptance still applies. Schema validation remains available separately with `--schemas`. The shared `powerbi-publish-powerbi` concurrency group prevents simultaneous writes to the environment's workspace and does not cancel an active deployment. It does not use workspace secrets, because GitHub does not allow the `secrets` context in concurrency expressions. GitHub may replace an older pending run when several runs are queued.
 
-Publishing definitions alone does not refresh imported data; Desktop caches are excluded from publishing. The semantic-model workflow uses `--refresh` to materialize the embedded M data after every deployment. The signed-in user needs permission to refresh the semantic model and delegated Power BI API access (`Dataset.ReadWrite.All`). No external connections or gateway are needed for this sample. A failed refresh or a 15-minute wait timeout fails the workflow, even if the definition was published successfully; inspect the job logs and the model's refresh history in Power BI. A timeout does not cancel a refresh already running in the service. For an already-published empty model, select **Refresh now** on `Sales` in the Power BI service, or rerun the updated model workflow. Compare refreshed report values with the acceptance table above. Scheduled refresh and multi-environment promotion are outside these pipelines.
+Publishing definitions alone does not refresh imported data; Desktop caches are excluded from publishing. Semantic-model deployments now automatically request an enhanced refresh with `type: Full`, `commitMode: Transactional`, and `applyRefreshPolicy: false`. No table or partition filter is sent, so every partition is reloaded and model calculations are recalculated, rather than limiting processing to an incremental-refresh window. Transactional mode commits only when the entire refresh succeeds. Enhanced refresh requires a supported Premium, Premium Per User, Embedded, or Fabric capacity; shared capacity does not support this request, and the script does not silently fall back to a standard refresh. The signed-in user needs permission to refresh the semantic model and delegated Power BI API access (`Dataset.ReadWrite.All`). No external connections or gateway are needed for this sample. A failed refresh or a 15-minute wait timeout fails the workflow, even if the definition was published successfully; inspect the job logs and the model's refresh history in Power BI. A timeout does not cancel a refresh already running in the service. For an already-published empty model, rerun the updated model workflow to deploy and fully refresh it. Compare refreshed report values with the acceptance table above. Scheduled refresh and multi-environment promotion are outside these pipelines.
 
 To publish and refresh from an already authenticated Azure CLI session:
 
 ```sh
-python3 scripts/deploy_powerbi.py semantic-model --refresh
+python3 scripts/deploy_powerbi.py semantic-model
 ```
 
-Without `--refresh`, the local publishing command still deploys definitions only. The option is not supported for report publishing.
+Full refresh is automatic for semantic-model publishing, including local commands without `--refresh`. The existing `--refresh` option remains accepted for compatibility and is not supported for report publishing. Report publishing and `--validate-only` never refresh data.
 
 To check either deployment source locally without Azure credentials or publishing dependencies:
 

@@ -1,4 +1,4 @@
-"""Publish one Power BI item, preserving other items in the target workspace."""
+"""Publish one Power BI item, fully refreshing semantic models and preserving other items."""
 
 import argparse
 import json
@@ -43,11 +43,12 @@ def refresh_model(workspace_id, name, credential, timeout=900):
     model_id = str(UUID(matches[0]["id"]))
     refresh_url = f"{base}/{model_id}/refreshes"
     _, headers = powerbi_request(
-        credential, "POST", refresh_url, {"notifyOption": "NoNotification"},
+        credential, "POST", refresh_url,
+        {"type": "Full", "commitMode": "Transactional", "applyRefreshPolicy": False},
     )
     request_id = headers.get("x-ms-request-id") or headers.get("RequestId")
     require(request_id, "Refresh was submitted but Power BI returned no request ID")
-    print(f"Refreshing {name}; request ID: {request_id}", flush=True)
+    print(f"Full refresh of {name}; request ID: {request_id}", flush=True)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         history, _ = powerbi_request(credential, "GET", f"{refresh_url}?$top=60")
@@ -58,7 +59,7 @@ def refresh_model(workspace_id, name, credential, timeout=900):
         if refresh is not None:
             status = refresh["status"]
             if status == "Completed":
-                print(f"Refreshed {name}; imported data is ready")
+                print(f"Fully refreshed {name}; imported data is ready")
                 return
             if status not in ("Unknown", "InProgress"):
                 raise RuntimeError(
@@ -102,10 +103,12 @@ def validate_item(item, sample=SAMPLE):
     print(f"PASS: deployment structure for {name} ({item_type})")
 
 
-def publish(item, workspace_id, refresh=False):
+def publish(item, workspace_id, refresh=None):
     from azure.identity import AzureCliCredential
     from fabric_cicd import FabricWorkspace, append_feature_flag, publish_all_items
 
+    if refresh is None:
+        refresh = item == "semantic-model"
     require(not refresh or item == "semantic-model", "--refresh is only supported for semantic-model")
     validate_item(item, SAMPLE)
     workspace_id = str(UUID(workspace_id))
@@ -130,8 +133,8 @@ def main():
     parser.add_argument("item", choices=ITEMS)
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument(
-        "--refresh", action="store_true",
-        help="Refresh imported data after publishing a semantic model and wait for completion",
+        "--refresh", action="store_true", default=None,
+        help="Fully refresh after publishing (automatic for semantic-model) and wait for completion",
     )
     arguments = parser.parse_args()
     try:
