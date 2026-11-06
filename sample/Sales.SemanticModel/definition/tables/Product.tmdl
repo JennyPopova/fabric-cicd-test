@@ -6,6 +6,7 @@ table Product
 		isHidden
 		isKey
 		formatString: 0
+		lineageTag: 5dcd4e79-8a15-4eaf-8c22-fedf458b4b82
 		summarizeBy: none
 		sourceColumn: ProductKey
 
@@ -20,6 +21,11 @@ table Product
 		lineageTag: 63ff767f-bfe5-4648-964e-284df9d03404
 		summarizeBy: none
 		sourceColumn: Category
+
+	column 'Product Label' = Product[ProductName] & " (" & Product[Category] & ")"
+		dataType: string
+		lineageTag: a8d29d56-a344-4e49-8bd8-3525d38f9254
+		summarizeBy: none
 
 	partition Product = m
 		mode: import

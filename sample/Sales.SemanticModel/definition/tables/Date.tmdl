@@ -23,11 +23,13 @@ table Date
 		dataType: int64
 		isHidden
 		formatString: 0
+		lineageTag: dfc20130-9a7f-40e1-8408-1361440f724d
 		summarizeBy: none
 		sourceColumn: MonthNumber
 
 	column MonthName
 		dataType: string
+		lineageTag: 2fcdfea0-bd0f-439a-baed-2dc9a912c603
 		summarizeBy: none
 		sourceColumn: MonthName
 		sortByColumn: MonthNumber
@@ -43,6 +45,7 @@ table Date
 		dataType: int64
 		isHidden
 		formatString: 0
+		lineageTag: 1d711ccf-d967-48aa-991b-26956a96a5fd
 		summarizeBy: none
 		sourceColumn: YearMonthSort
 

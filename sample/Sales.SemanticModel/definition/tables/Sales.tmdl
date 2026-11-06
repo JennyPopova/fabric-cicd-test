@@ -36,6 +36,7 @@ table Sales
 		isHidden
 		isKey
 		formatString: 0
+		lineageTag: b4a70c5d-4485-4b25-b38d-a6fc64776ae9
 		summarizeBy: none
 		sourceColumn: SaleID
 
@@ -43,6 +44,7 @@ table Sales
 		dataType: dateTime
 		isHidden
 		formatString: yyyy-MM-dd
+		lineageTag: 31fcc2c9-db77-4294-bd3a-7a59275828f5
 		summarizeBy: none
 		sourceColumn: Date
 
@@ -52,6 +54,7 @@ table Sales
 		dataType: int64
 		isHidden
 		formatString: 0
+		lineageTag: d27f86dd-6866-47f2-a669-9cd14995b23e
 		summarizeBy: none
 		sourceColumn: ProductKey
 
@@ -59,6 +62,7 @@ table Sales
 		dataType: int64
 		isHidden
 		formatString: #,0
+		lineageTag: f2de0928-ee4f-4765-84d3-e98e4687f0e5
 		summarizeBy: sum
 		sourceColumn: Quantity
 
@@ -66,6 +70,7 @@ table Sales
 		dataType: decimal
 		isHidden
 		formatString: "$"#,0.00
+		lineageTag: 54d6451c-0769-4db8-bf13-fab3f16441fa
 		summarizeBy: none
 		sourceColumn: UnitPrice
 
@@ -73,6 +78,7 @@ table Sales
 		dataType: decimal
 		isHidden
 		formatString: "$"#,0.00
+		lineageTag: 14fdfe69-37b3-4ae8-9706-76ad0528ce8a
 		summarizeBy: none
 		sourceColumn: UnitCost
 
@@ -80,6 +86,7 @@ table Sales
 		dataType: decimal
 		isHidden
 		formatString: "$"#,0.00
+		lineageTag: be4d7334-fd5b-44f8-91a4-484c760cfb99
 		summarizeBy: sum
 		sourceColumn: Revenue
 
@@ -87,6 +94,7 @@ table Sales
 		dataType: decimal
 		isHidden
 		formatString: "$"#,0.00
+		lineageTag: d4509866-62e0-46c0-8a88-60208a5938d4
 		summarizeBy: sum
 		sourceColumn: Cost
 
