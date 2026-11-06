@@ -45,7 +45,7 @@ def refresh_model(workspace_id, name, credential, timeout=900):
     _, headers = powerbi_request(
         credential, "POST", refresh_url, {"notifyOption": "NoNotification"},
     )
-    request_id = headers.get("x-ms-request-id")
+    request_id = headers.get("x-ms-request-id") or headers.get("RequestId")
     require(request_id, "Refresh was submitted but Power BI returned no request ID")
     print(f"Refreshing {name}; request ID: {request_id}", flush=True)
     deadline = time.monotonic() + timeout

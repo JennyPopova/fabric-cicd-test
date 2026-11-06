@@ -1,5 +1,6 @@
 import base64
 import contextlib
+from email.message import Message
 import io
 import json
 from pathlib import Path
@@ -229,6 +230,30 @@ class PowerBIRefreshTests(unittest.TestCase):
         self.responses([self.entry("Failed", serviceExceptionJson='{"error":"M failure"}')])
         with self.assertRaisesRegex(RuntimeError, "Failed.*M failure"):
             self.refresh()
+
+    def test_requestid_header_waits_for_own_refresh(self):
+        for header_name in ("RequestId", "requestid", "REQUESTID"):
+            with self.subTest(header_name=header_name):
+                headers = Message()
+                headers[header_name] = self.request_id
+                self.request.side_effect = [
+                    ({"value": [{"id": MODEL_ID, "name": "Sales"}]}, {}),
+                    ({}, headers),
+                    ({"value": [self.entry("Completed", request_id="other-request")]}, {}),
+                    ({"value": [self.entry("Completed")]}, {}),
+                ]
+                self.sleep.reset_mock()
+                self.refresh()
+                self.sleep.assert_called_once()
+
+    def test_x_ms_request_id_takes_precedence(self):
+        self.request.side_effect = [
+            ({"value": [{"id": MODEL_ID, "name": "Sales"}]}, {}),
+            ({}, {"x-ms-request-id": self.request_id, "RequestId": "other-request"}),
+            ({"value": [self.entry("Completed")]}, {}),
+        ]
+        self.refresh()
+        self.sleep.assert_not_called()
 
     def test_disabled_cancelled_and_unexpected_states_fail(self):
         for status in ("Disabled", "Cancelled", "Unexpected"):
