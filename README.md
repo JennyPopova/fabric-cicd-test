@@ -148,13 +148,21 @@ After merging these workflows into `main`, open **Actions**, select **Publish se
 
 Only enter a device code from a workflow run you intentionally started and trust. Treat an unexpired code as sensitive and do not share it. Anyone who can read the job logs can see the code, especially in public repositories; never approve an unexpected sign-in or a request from an untrusted workflow.
 
-For the first deployment, wait for the semantic-model workflow to finish successfully before manually running **Publish Sales-report** and completing its own device-code sign-in.
+For the first deployment, wait for the semantic-model workflow to finish successfully before manually running **Publish Sales-report** and completing its own device-code sign-in. The model workflow publishes the definition, requests a Power BI refresh using the same signed-in user, and waits for that specific refresh to complete so the import tables contain data.
 
 The report's relative `../Sales.SemanticModel` reference is resolved by `fabric-cicd` to the existing `Sales` model's ID in the target workspace. The report workflow does **not** deploy or refresh the model; it fails if the model has not been published there. Later report-only changes can be published independently. Publish compatible model changes first when changing fields used by the report.
 
 Both workflows run regression tests and structural checks before signing in. The checks do not execute TMDL, M, DAX, or render reports; Desktop acceptance still applies. Schema validation remains available separately with `--schemas`. A shared concurrency group prevents simultaneous writes to the workspace and does not cancel an active deployment. GitHub may replace an older pending run when several runs are queued.
 
-Publishing definitions does not refresh imported data. After the initial model deployment, refresh `Sales` in the Power BI service before checking report values; configure any required refresh permissions or connections there. Desktop caches are excluded from publishing. Automated refresh and multi-environment promotion are outside these pipelines.
+Publishing definitions alone does not refresh imported data; Desktop caches are excluded from publishing. The semantic-model workflow uses `--refresh` to materialize the embedded M data after every deployment. The signed-in user needs permission to refresh the semantic model and delegated Power BI API access (`Dataset.ReadWrite.All`). No external connections or gateway are needed for this sample. A failed refresh or a 15-minute wait timeout fails the workflow, even if the definition was published successfully; inspect the job logs and the model's refresh history in Power BI. A timeout does not cancel a refresh already running in the service. For an already-published empty model, select **Refresh now** on `Sales` in the Power BI service, or rerun the updated model workflow. Compare refreshed report values with the acceptance table above. Scheduled refresh and multi-environment promotion are outside these pipelines.
+
+To publish and refresh from an already authenticated Azure CLI session:
+
+```sh
+python3 scripts/deploy_powerbi.py semantic-model --refresh
+```
+
+Without `--refresh`, the local publishing command still deploys definitions only. The option is not supported for report publishing.
 
 To check either deployment source locally without Azure credentials or publishing dependencies:
 
