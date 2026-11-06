@@ -52,8 +52,8 @@ jobs:
           echo "Open the Microsoft URL printed below and enter the device code."
           echo "Sign in with the Power BI account that has access to the target workspace."
           az login --tenant "$AZURE_TENANT_ID" --use-device-code --allow-no-subscriptions --output none
-      - name: Publish and refresh Sales semantic model only
-        run: python scripts/deploy_powerbi.py semantic-model --refresh
+      - name: Publish and fully refresh Sales semantic model only
+        run: python scripts/deploy_powerbi.py semantic-model
       - name: Clear Azure CLI credentials
         if: always()
         run: az account clear
