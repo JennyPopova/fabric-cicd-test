@@ -21,9 +21,11 @@ jobs:
     env:
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       PBI_WORKSPACE_ID: ${{ vars.PBI_WORKSPACE_ID }}
-      AZURE_CONFIG_DIR: ${{ runner.temp }}/powerbi-azure-cli
       AZURE_CORE_LOGIN_EXPERIENCE_V2: "off"
     steps:
+      - name: Configure Azure CLI directory
+        shell: bash
+        run: echo "AZURE_CONFIG_DIR=$RUNNER_TEMP/powerbi-azure-cli" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
