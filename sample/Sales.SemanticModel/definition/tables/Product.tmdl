@@ -22,6 +22,11 @@ table Product
 		summarizeBy: none
 		sourceColumn: Category
 
+	column ProductLabel = 'Product'[Category] & " " & 'Product'[ProductName]
+		dataType: string
+		lineageTag: fb8040d7-7e99-4375-930c-fbeb774a1b93
+		summarizeBy: none
+
 	partition Product = m
 		mode: import
 		source =
