@@ -1,5 +1,5 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.15.0/schema.json",
   "name": "64ceae52e70a9d8e4909",
   "position": {
     "x": 40,
@@ -20,13 +20,12 @@
                   {
                     "value": "Sales Performance Overview",
                     "textStyle": {
+                      "fontWeight": "bold",
                       "fontFamily": "Segoe UI",
-                      "fontSize": "14pt",
-                      "fontWeight": "bold"
+                      "fontSize": "14pt"
                     }
                   }
-                ],
-                "horizontalTextAlignment": "left"
+                ]
               }
             ]
           }

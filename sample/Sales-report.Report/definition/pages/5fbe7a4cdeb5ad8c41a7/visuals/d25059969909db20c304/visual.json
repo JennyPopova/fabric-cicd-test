@@ -1,5 +1,5 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.15.0/schema.json",
   "name": "d25059969909db20c304",
   "position": {
     "x": 965,
@@ -25,7 +25,8 @@
                   "Property": "Category"
                 }
               },
-              "queryRef": "Product.Category"
+              "queryRef": "Product.Category",
+              "active": true
             }
           ]
         },
