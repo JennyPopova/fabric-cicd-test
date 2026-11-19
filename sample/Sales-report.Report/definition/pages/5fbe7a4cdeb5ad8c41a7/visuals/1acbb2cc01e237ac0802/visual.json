@@ -1,5 +1,5 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.15.0/schema.json",
   "name": "1acbb2cc01e237ac0802",
   "position": {
     "x": 40,
@@ -25,7 +25,8 @@
                   "Property": "YearMonth"
                 }
               },
-              "queryRef": "Date.YearMonth"
+              "queryRef": "Date.YearMonth",
+              "active": true
             }
           ]
         },

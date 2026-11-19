@@ -11,9 +11,11 @@ annotation __PBI_TimeIntelligenceEnabled = 0
 
 annotation PBI_QueryOrder = ["Date","Product","Sales"]
 
-annotation PBI_ProTooling = ["MCP-PBIModeling-Hosted","WebModelingEdit"]
+annotation PBI_ProTooling = ["MCP-PBIModeling-Hosted","WebModelingEdit","CopilotTooling","DevMode"]
 
 ref table Date
 ref table Product
 ref table Sales
+
+ref cultureInfo en-US
 
