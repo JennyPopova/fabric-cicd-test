@@ -79,5 +79,6 @@
     "allowChangeFilterTypes": true,
     "useEnhancedTooltips": true,
     "useDefaultAggregateDisplayName": true
-  }
+  },
+  "linguisticSchemaSyncVersion": 2
 }
