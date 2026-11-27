@@ -1,9 +1,9 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.15.0/schema.json",
   "name": "d25059969909db20c304",
   "position": {
-    "x": 965,
-    "y": 294,
+    "x": 965.30075187969931,
+    "y": 294.36090225563913,
     "z": 1,
     "height": 368,
     "width": 915
@@ -25,7 +25,8 @@
                   "Property": "Category"
                 }
               },
-              "queryRef": "Product.Category"
+              "queryRef": "Product.Category",
+              "active": true
             }
           ]
         },
@@ -86,6 +87,24 @@
               "expr": {
                 "Literal": {
                   "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dataPoint": [
+        {
+          "properties": {
+            "fill": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "ThemeDataColor": {
+                      "ColorId": 4,
+                      "Percent": 0.2
+                    }
+                  }
                 }
               }
             }
